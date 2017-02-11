@@ -1,31 +1,35 @@
 pub mod cpu;
 pub mod memory_map;
+pub mod rom;
+pub mod bits;
 
 use std::fs::File;
 
-#[derive(Default,Debug)]
+#[derive(Debug, Default)]
 struct Nes {
     cpu: cpu::Cpu,
 }
 
 impl Nes {
-    pub fn load(&mut self, rom: File) {
-        self.cpu.load(rom);
-    }
-
     pub fn power_on(&mut self) {}
 
     pub fn run(&mut self) {
         self.cpu.run();
     }
+
+    pub fn load_rom(&mut self, rom: rom::NesRom) {
+        self.cpu.load(rom.data)
+    }
 }
 
 fn main() {
-    let rom_file = "c:/users/eric lauffenburger/downloads/roms/nes/nestest.nes";
-    let rom = File::open(rom_file).unwrap();
+    let rom_path = "c:/users/eric lauffenburger/downloads/roms/nes/nestest.nes";
+    let rom_file = File::open(rom_path).unwrap();
 
+    let rom = rom::NesRom::from_nes_file(rom_file);
     let mut nes = Nes::default();
-    nes.load(rom);
+
+    nes.load_rom(rom);
     nes.power_on();
 
     nes.run();

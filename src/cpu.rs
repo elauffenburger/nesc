@@ -1,7 +1,5 @@
 use super::memory_map;
-
-use std::fs::File;
-use std::io::Read;
+use super::bits;
 
 #[derive(Debug, Default)]
 pub struct Cpu {
@@ -33,30 +31,41 @@ pub struct Cpu {
 
 impl Cpu {
     pub fn step_instruction(&mut self) {
-        if self.pending_cycles == 0 {
-            let instruction = self.next_word();
+        match self.pending_cycles {
+            0 => {
+                let opcode = self.next_word();
 
-            println!("{:x}", instruction);
+                match opcode {
+                    0x4e => {
+                        // lsr -- absolute
 
-            match instruction {
-                0x4E => {
-                    let opcode = instruction;
-                    let mem_loc = self.next_double_word();
+                        let mem_loc = self.next_double_word();
 
-                    let val = self.read_memory(mem_loc);
-                    self.write_memory(mem_loc, val >> 1);
+                        let val = self.read_memory(mem_loc);
+                        self.write_memory(mem_loc, val >> 1);
 
-                    self.take_cycles(3);
-                } 
-                _ => panic!("unknown instruction: {:x}", &instruction),
-            };
+                        self.take_cycles(3);
+                    }
+                    0x9a => {
+                        // txs -- implied
+
+                        self.reg_stack_pointer = self.reg_index_x;
+
+                        self.take_cycles(2);
+                    }
+                    _ => panic!("unknown opcode: {:x}", &opcode),
+                };
+            } 
+            ref cycles => {
+                println!("waiting for {} more cycles", cycles);
+            }
         }
 
         self.finish_cycle();
     }
 
-    pub fn load(&mut self, mut rom: File) {
-        rom.read_to_end(&mut self.rom).unwrap();
+    pub fn load(&mut self, rom: Vec<u8>) {
+        self.rom = rom;
     }
 
     pub fn run(&mut self) {
@@ -78,7 +87,11 @@ impl Cpu {
     }
 
     fn read_word(&self, address: u16) -> u8 {
-        self.rom[address as usize]
+        let word = self.rom[address as usize];
+
+        println!("read word {:x}", word);
+
+        word
     }
 
     fn finish_cycle(&mut self) {
@@ -87,7 +100,7 @@ impl Cpu {
 
     fn next_word(&mut self) -> u8 {
         let word = self.read_word(self.reg_program_counter);
-        self.reg_program_counter += 8;
+        self.reg_program_counter += 1;
 
         word
     }
@@ -96,10 +109,7 @@ impl Cpu {
         let first = self.next_word();
         let second = self.next_word();
 
-        let first_ex = ((first as u16) << 8) | 0x00ff;
-        let second_ex = (second as u16) | 0xff00;
-
-        first_ex & second_ex
+        bits::merge(first, second)
     }
 
     fn take_cycles(&mut self, cycles: u8) {
