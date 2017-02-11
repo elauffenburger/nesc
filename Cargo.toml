@@ -1,0 +1,6 @@
+[package]
+name = "nesc"
+version = "0.1.0"
+authors = ["Eric Lauffenburger <elauffenburger@gmail.com>"]
+
+[dependencies]
