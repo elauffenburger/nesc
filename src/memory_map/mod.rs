@@ -1,17 +1,33 @@
+// TODO: make this cpu::memory_map
+
+pub mod test;
+
 use super::ppu;
-use super::system;
+use super::rom;
 
 use std::fmt;
 use std::fmt::Debug;
 
-const MEMORY_MAP_SIZE: usize = 0x010000;
+pub const MEMORY_MAP_TOTAL_SIZE: usize = 0x010000;
+
+pub const PRG_ROM_BANK_SIZE: usize = 0x004000;
+pub const PRG_ROM_TOTAL_SIZE: usize = PRG_ROM_BANK_SIZE * 2;
+pub const PRG_ROM_START: u16 = 0x8000;
+pub const PRG_ROM_END: u16 = 0xffff;
+
+pub const SRAM_SIZE: usize = 0x002000;
+pub const EXPANSION_ROM_SIZE: usize = 0x001fe0;
+pub const IO_REGISTERS_HI_SIZE: usize = 0x000020;
+pub const IO_REGISTERS_LO_SIZE: usize = 0x000008;
+pub const RAM_SIZE: usize = 0x000600;
+pub const STACK_SIZE: usize = 0x000100;
+pub const ZERO_PAGE_SIZE: usize = 0x000100;
 
 pub struct MemoryMap {
     memory: Vec<u8>,
 
     num_prg_banks: u8,
     num_chr_banks: u8,
-    num_ram_banks: u8,
 }
 
 impl MemoryMap {
@@ -22,8 +38,6 @@ impl MemoryMap {
             MirrorRegion::None => address,
         };
 
-        println!("reading address {:x}", address);
-
         self.memory[address as usize]
     }
 
@@ -33,6 +47,28 @@ impl MemoryMap {
             MirrorRegion::One => self.write_to_mirrored_region_one(address, val),
             MirrorRegion::Two => self.write_to_mirrored_region_two(address, val),
             MirrorRegion::None => self.write_direct(address, val),
+        }
+    }
+
+    pub fn load(&mut self, rom: &rom::NesRom) {
+        self.num_prg_banks = rom.num_prg_banks;
+        self.num_chr_banks = rom.num_chr_banks;
+
+        // load prg_rom
+        let prg_rom = &rom.prg_rom;
+        match rom.num_prg_banks {
+            1 => self.load_prg_rom_upper(&prg_rom),
+            _ => {
+                panic!("invalid number of prg_banks to load into memory!");
+            }
+        }
+    }
+
+    fn load_prg_rom_upper(&mut self, buf: &[u8]) {
+        let upper_bank_start = PRG_ROM_START + (PRG_ROM_BANK_SIZE as u16);
+
+        for i in 0..PRG_ROM_BANK_SIZE {
+            self.memory[(upper_bank_start as usize) + i] = buf[i];
         }
     }
 
@@ -76,8 +112,6 @@ impl MemoryMap {
     fn write_direct(&mut self, address: u16, val: u8) {
         self.memory[address as usize] = val;
     }
-
-    pub fn configure(&mut self, config: system::SystemConfiguration) {}
 }
 
 impl Debug for MemoryMap {
@@ -89,10 +123,9 @@ impl Debug for MemoryMap {
 impl Default for MemoryMap {
     fn default() -> Self {
         MemoryMap {
-            memory: vec![0; MEMORY_MAP_SIZE],
+            memory: vec![0; MEMORY_MAP_TOTAL_SIZE],
             num_chr_banks: 0,
             num_prg_banks: 0,
-            num_ram_banks: 0,
         }
     }
 }
@@ -101,35 +134,4 @@ enum MirrorRegion {
     One,
     Two,
     None,
-}
-
-#[test]
-fn test_mirrored_region_one_writes() {
-    let mut map = MemoryMap::default();
-
-    map.write_to_mirrored_region_one(0x0000, 1);
-
-    // test we wrote to the right places
-    assert_eq!(&map.read(0x0000), &1);
-    assert_eq!(&map.read(0x0800), &1);
-    assert_eq!(&map.read(0x1000), &1);
-    assert_eq!(&map.read(0x1800), &1);
-
-    // test we stayed within our limits
-    assert_eq!(&map.read(0x2000), &0);
-}
-
-#[test]
-fn test_mirrored_region_two_writes() {
-    let mut map = MemoryMap::default();
-
-    map.write_to_mirrored_region_two(0x2009, 1);
-
-    // test we wrote to the right places
-    assert_eq!(&map.read(0x2001), &1);
-    assert_eq!(&map.read(0x2009), &1);
-    assert_eq!(&map.read(0x3ff9), &1);
-
-    // test we stayed within our limits
-    assert_eq!(&map.read(0x4000), &0);
 }

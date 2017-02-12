@@ -3,9 +3,10 @@ pub mod ppu;
 pub mod memory_map;
 pub mod rom;
 pub mod bits;
-pub mod system;
 
 use std::fs::File;
+
+extern crate byteorder;
 
 #[derive(Debug, Default)]
 struct Nes {
@@ -20,11 +21,9 @@ impl Nes {
     }
 
     pub fn load_rom(&mut self, rom: rom::NesRom) {
-        let config = rom.to_system_configuration();
-        self.cpu.load(rom);
+        self.cpu.load(&rom);
 
-        self.cpu.configure(config);
-        // TODO configure ppu
+        // TODO: load rom into ppu
     }
 }
 

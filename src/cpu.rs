@@ -1,12 +1,11 @@
 use super::memory_map;
 use super::bits;
-use super::system;
 use super::rom;
+
+use byteorder::{ByteOrder, LittleEndian};
 
 #[derive(Debug, Default)]
 pub struct Cpu {
-    rom: Vec<u8>,
-
     memory_map: memory_map::MemoryMap,
 
     // Number of cycles left for the last instruction to execute
@@ -35,6 +34,8 @@ impl Cpu {
     pub fn step_instruction(&mut self) {
         match self.pending_cycles {
             0 => {
+                println!("{:#?}", &self);
+
                 let opcode = self.next_word();
 
                 match opcode {
@@ -42,8 +43,8 @@ impl Cpu {
                         // lsr -- absolute
                         let mem_loc = self.next_double_word();
 
-                        let val = self.read_memory(mem_loc);
-                        self.write_memory(mem_loc, val >> 1);
+                        let val = self.read_word(mem_loc);
+                        self.write_word(mem_loc, val >> 1);
 
                         self.take_cycles(3);
                     }
@@ -71,34 +72,25 @@ impl Cpu {
         self.finish_cycle();
     }
 
-    pub fn load(&mut self, rom: rom::NesRom) {
-        self.rom = rom.data;
-    }
+    pub fn load(&mut self, rom: &rom::NesRom) {
+        self.memory_map.load(rom);
 
-    pub fn configure(&mut self, config: system::SystemConfiguration) {
-        self.memory_map.configure(config);
+        // set pc to prg_rom start address
+        self.reg_program_counter = memory_map::PRG_ROM_START;
     }
 
     pub fn run(&mut self) {
-        if self.rom.len() == 0 {
-            panic!("No rom loaded!")
-        }
-
         loop {
             self.step_instruction();
         }
     }
 
-    fn write_memory(&mut self, mem_loc: u16, val: u8) {
+    fn write_word(&mut self, mem_loc: u16, val: u8) {
         self.memory_map.write(mem_loc, val);
     }
 
-    fn read_memory(&self, mem_loc: u16) -> u8 {
-        self.memory_map.read(mem_loc)
-    }
-
     fn read_word(&self, address: u16) -> u8 {
-        self.rom[address as usize]
+        self.memory_map.read(address)
     }
 
     fn finish_cycle(&mut self) {
@@ -116,7 +108,7 @@ impl Cpu {
         let first = self.next_word();
         let second = self.next_word();
 
-        bits::merge(first, second)
+        LittleEndian::read_u16(&vec![first, second])
     }
 
     fn take_cycles(&mut self, cycles: u8) {

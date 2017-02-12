@@ -1,20 +1,22 @@
 use super::bits;
 use super::memory_map;
 use super::ppu;
-use super::system;
 
 use std::fs::File;
 use std::io::Read;
+use std::fmt;
 
+#[derive(Default)]
 pub struct NesRom {
-    pub data: Vec<u8>,
+    pub prg_rom: Vec<u8>,
+
     identifier: Vec<u8>,
     format: u8,
 
-    num_prg_banks: u8,
-    num_chr_banks: u8,
-    num_ram_banks: u8,
-    mirroring_type: ppu::MirroringType,
+    pub num_prg_banks: u8,
+    pub num_chr_banks: u8,
+    pub num_ram_banks: u8,
+    pub mirroring_type: ppu::MirroringType,
     has_battery_backed_ram: bool,
     has_trainer: bool,
     mapper_number: u8,
@@ -29,8 +31,8 @@ impl NesRom {
         let mut buf: Vec<u8> = vec![];
         nes_file.read_to_end(&mut buf).unwrap();
 
-        let header = &buf[..16];
-        let rom = &buf[16..];
+        let header_size = 16;
+        let header = &buf[0..header_size];
 
         // TODO verify identifier eq 'NES'
         let identifier = &header[0..3];
@@ -52,8 +54,13 @@ impl NesRom {
         let has_trainer = (control_byte_one & 0b100) >> 2 == 1;
         let mapper_number = NesRom::get_maper_number(control_byte_one, control_byte_two);
 
+        let prg_rom_banks = match num_prg_banks {
+            0 => &buf[0..0],
+            _ => &buf[header_size..header_size + (((num_prg_banks as u16)*0x4000) as usize)]   
+        };
+
         NesRom {
-            data: Vec::from(rom),
+            prg_rom: Vec::from(prg_rom_banks),
             identifier: Vec::from(identifier),
             format: format,
             num_prg_banks: num_prg_banks,
@@ -63,15 +70,6 @@ impl NesRom {
             has_battery_backed_ram: has_battery_backed_ram,
             has_trainer: has_trainer,
             mapper_number: mapper_number,
-        }
-    }
-
-    pub fn to_system_configuration(&self) -> system::SystemConfiguration {
-        system::SystemConfiguration {
-            num_prg_banks: self.num_prg_banks,
-            num_chr_banks: self.num_chr_banks,
-            num_ram_banks: self.num_ram_banks,
-            mirroring_type: self.mirroring_type.clone(),
         }
     }
 
@@ -89,5 +87,15 @@ impl NesRom {
 
     fn get_maper_number(control_byte_one: u8, control_byte_two: u8) -> u8 {
         bits::overlay(control_byte_two, control_byte_one)
+    }
+}
+
+impl fmt::Debug for NesRom {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "NesRom {{ has_trainer: {}, mapper_number: {}, num_prg_banks: {} }}",
+               self.has_trainer,
+               self.mapper_number,
+               self.num_prg_banks)
     }
 }
