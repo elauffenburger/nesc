@@ -1,4 +1,5 @@
 use super::memory_map;
+use super::memory_map::MemoryMapper;
 use super::bits;
 use super::rom;
 
