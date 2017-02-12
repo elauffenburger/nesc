@@ -40,7 +40,6 @@ impl Cpu {
                 match opcode {
                     0x4e => {
                         // lsr -- absolute
-
                         let mem_loc = self.next_double_word();
 
                         let val = self.read_memory(mem_loc);
@@ -50,10 +49,16 @@ impl Cpu {
                     }
                     0x9a => {
                         // txs -- implied
-
                         self.reg_stack_pointer = self.reg_index_x;
 
                         self.take_cycles(2);
+                    }
+                    0x4c => {
+                        // jmp -- absolute
+                        let address = self.next_double_word();
+                        self.reg_program_counter = address;
+
+                        self.take_cycles(3);
                     }
                     _ => panic!("unknown opcode: {:x}", &opcode),
                 };
@@ -93,11 +98,7 @@ impl Cpu {
     }
 
     fn read_word(&self, address: u16) -> u8 {
-        let word = self.rom[address as usize];
-
-        println!("read word {:x}", word);
-
-        word
+        self.rom[address as usize]
     }
 
     fn finish_cycle(&mut self) {
