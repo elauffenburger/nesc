@@ -57,7 +57,12 @@ impl MemoryMap {
         // load prg_rom
         let prg_rom = &rom.prg_rom;
         match rom.num_prg_banks {
-            1 => self.load_prg_rom_upper(&prg_rom),
+            1 => {
+                self.load_prg_rom_upper(&prg_rom);
+                // TODO implement an actual memory mapper -- this is poor
+                // man's mirror for sure
+                self.load_prg_rom_lower(&prg_rom);
+            }
             _ => {
                 panic!("invalid number of prg_banks to load into memory!");
             }
@@ -67,8 +72,21 @@ impl MemoryMap {
     fn load_prg_rom_upper(&mut self, buf: &[u8]) {
         let upper_bank_start = PRG_ROM_START + (PRG_ROM_BANK_SIZE as u16);
 
+        self.write_memory(upper_bank_start as usize, buf);
+    }
+
+    fn load_prg_rom_lower(&mut self, buf: &[u8]) {
+        let lower_bank_start = PRG_ROM_START;
+
+        self.write_memory(lower_bank_start as usize, buf);
+    }
+
+    fn write_memory(&mut self, starting_at: usize, buf: &[u8]) {
         for i in 0..PRG_ROM_BANK_SIZE {
-            self.memory[(upper_bank_start as usize) + i] = buf[i];
+            let address = starting_at + i;
+            let value = buf[i];
+
+            self.memory[address] = value;
         }
     }
 
