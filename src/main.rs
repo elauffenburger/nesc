@@ -1,7 +1,9 @@
 pub mod cpu;
+pub mod ppu;
 pub mod memory_map;
 pub mod rom;
 pub mod bits;
+pub mod system;
 
 use std::fs::File;
 
@@ -18,7 +20,11 @@ impl Nes {
     }
 
     pub fn load_rom(&mut self, rom: rom::NesRom) {
-        self.cpu.load(rom.data)
+        let config = rom.to_system_configuration();
+        self.cpu.load(rom);
+
+        self.cpu.configure(config);
+        // TODO configure ppu
     }
 }
 

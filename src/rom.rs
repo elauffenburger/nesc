@@ -1,4 +1,7 @@
 use super::bits;
+use super::memory_map;
+use super::ppu;
+use super::system;
 
 use std::fs::File;
 use std::io::Read;
@@ -11,16 +14,10 @@ pub struct NesRom {
     num_prg_banks: u8,
     num_chr_banks: u8,
     num_ram_banks: u8,
-    mirroring_type: MirroringType,
+    mirroring_type: ppu::MirroringType,
     has_battery_backed_ram: bool,
     has_trainer: bool,
     mapper_number: u8,
-}
-
-enum MirroringType {
-    Horizontal,
-    Vertical,
-    Both,
 }
 
 impl NesRom {
@@ -65,17 +62,26 @@ impl NesRom {
             mirroring_type: mirroring_type,
             has_battery_backed_ram: has_battery_backed_ram,
             has_trainer: has_trainer,
-            mapper_number: mapper_number
+            mapper_number: mapper_number,
         }
     }
 
-    fn get_mirroring_type(control_byte_one: u8) -> MirroringType {
+    pub fn to_system_configuration(&self) -> system::SystemConfiguration {
+        system::SystemConfiguration {
+            num_prg_banks: self.num_prg_banks,
+            num_chr_banks: self.num_chr_banks,
+            num_ram_banks: self.num_ram_banks,
+            mirroring_type: self.mirroring_type.clone(),
+        }
+    }
+
+    fn get_mirroring_type(control_byte_one: u8) -> ppu::MirroringType {
         match (control_byte_one & 0b1000) >> 3 == 1 {
-            true => MirroringType::Both,
+            true => ppu::MirroringType::Both,
             _ => {
                 match control_byte_one & 1 == 1 {
-                    false => MirroringType::Horizontal,
-                    _ => MirroringType::Vertical
+                    false => ppu::MirroringType::Horizontal,
+                    _ => ppu::MirroringType::Vertical,
                 }
             }
         }

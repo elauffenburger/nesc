@@ -1,5 +1,7 @@
 use super::memory_map;
 use super::bits;
+use super::system;
+use super::rom;
 
 #[derive(Debug, Default)]
 pub struct Cpu {
@@ -64,8 +66,12 @@ impl Cpu {
         self.finish_cycle();
     }
 
-    pub fn load(&mut self, rom: Vec<u8>) {
-        self.rom = rom;
+    pub fn load(&mut self, rom: rom::NesRom) {
+        self.rom = rom.data;
+    }
+
+    pub fn configure(&mut self, config: system::SystemConfiguration) {
+        self.memory_map.configure(config);
     }
 
     pub fn run(&mut self) {
