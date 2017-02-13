@@ -5,15 +5,17 @@ pub mod rom;
 pub mod bits;
 
 use std::fs::File;
+use std::fmt::Debug;
+use memory_map::MemoryMapper;
 
 extern crate byteorder;
 
 #[derive(Debug, Default)]
-struct Nes {
-    cpu: cpu::Cpu,
+struct Nes<T: MemoryMapper + Debug> {
+    cpu: cpu::Cpu<T>,
 }
 
-impl Nes {
+impl<T: MemoryMapper + Debug> Nes<T> {
     pub fn power_on(&mut self) {}
 
     pub fn run(&mut self) {
@@ -32,7 +34,7 @@ fn main() {
     let rom_file = File::open(rom_path).unwrap();
 
     let rom = rom::NesRom::from_nes_file(rom_file);
-    let mut nes = Nes::default();
+    let mut nes: Nes<memory_map::NROMMemoryMap> = Nes::default();
 
     nes.load_rom(rom);
     nes.power_on();

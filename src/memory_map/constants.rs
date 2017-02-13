@@ -10,5 +10,9 @@ pub const EXPANSION_ROM_SIZE: usize = 0x001fe0;
 pub const IO_REGISTERS_HI_SIZE: usize = 0x000020;
 pub const IO_REGISTERS_LO_SIZE: usize = 0x000008;
 pub const RAM_SIZE: usize = 0x000600;
+
 pub const STACK_SIZE: usize = 0x000100;
+pub const STACK_START: u16 = 0x000100;
+pub const STACK_END: u16 = STACK_START + (STACK_SIZE as u16) - 1;
+
 pub const ZERO_PAGE_SIZE: usize = 0x000100;

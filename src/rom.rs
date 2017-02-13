@@ -1,6 +1,5 @@
-use super::bits;
-use super::memory_map;
-use super::ppu;
+use ::bits;
+use ::ppu;
 
 use std::fs::File;
 use std::io::Read;
@@ -55,7 +54,7 @@ impl NesRom {
         let mapper_number = NesRom::get_maper_number(control_byte_one, control_byte_two);
 
         let prg_rom_banks = match num_prg_banks {
-            0 => &buf[0..0],
+            0 => panic!("no prg_rom banks found in header!"),
             _ => &buf[header_size..header_size + (((num_prg_banks as u16)*0x4000) as usize)]   
         };
 
