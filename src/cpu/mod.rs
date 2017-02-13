@@ -5,6 +5,7 @@ use ::memory_map::MemoryMapper;
 use ::rom;
 
 use std::fmt::Debug;
+use std::num::Wrapping;
 
 // [Cpu]
 // The heart of the system: a MOS 6502 (really, a Ricoh clone)
@@ -12,6 +13,7 @@ use std::fmt::Debug;
 // [Resources]
 // stack, push, pop => http://www.cs.jhu.edu/~phi/csf/slides/lecture-6502-stack.pdf
 // pc start address => http://forums.nesdev.com/viewtopic.php?t=5494
+// page boundaries => http://atariage.com/forums/topic/250652-what-is-a-page-boundary/?p=3475052
 //
 // [Stack operations]
 // Stack operations are simple with u8, but tricky with u16
@@ -64,7 +66,10 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         let mem_loc = self.next_double_word();
 
                         let val = self.read(mem_loc);
-                        self.write(mem_loc, val >> 1);
+                        let (result, overflowed) = val.overflowing_shr(1);
+
+                        self.write(mem_loc, result);
+                        self.processor_status.last_instruction_overunderflow = overflowed;
 
                         self.take_cycles(3);
                     }
@@ -108,6 +113,33 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         self.reg_program_counter = address + 1;
 
                         self.take_cycles(6);
+                    }
+                    0x38 => {
+                        // sec -- immediate
+                        self.processor_status.last_instruction_overunderflow = true;
+
+                        self.take_cycles(2);
+                    }
+                    0xb0 => {
+                        // bcs -- relative
+                        let relative_address = self.next_word();
+                        
+                        let mut num_cycles = match self.processor_status.last_instruction_overunderflow {
+                            false => 2,
+                            _ => {
+                                let absolute_address = self.reg_program_counter.wrapping_add(relative_address as u16);
+                                let num_cycles = match memory_map::crosses_page_boundary(self.reg_program_counter, absolute_address) {
+                                    false => 3,
+                                    true => 4
+                                };
+
+                                self.reg_program_counter = absolute_address;
+
+                                num_cycles
+                            }
+                        };
+
+                        self.take_cycles(num_cycles);
                     }
 
                     _ => panic!("unknown opcode: {:x}", &opcode),

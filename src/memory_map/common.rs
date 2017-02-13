@@ -14,3 +14,7 @@ pub fn resolve_mirrored_address(address: u16, start_address: u16, region_size: u
 
     mirror_address
 }
+
+pub fn crosses_page_boundary(in_page: u16, address: u16) -> bool {
+    (in_page & 0xff00) == (address & 0xff00)
+}
