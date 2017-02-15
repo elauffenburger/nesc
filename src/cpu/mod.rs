@@ -153,6 +153,27 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
 
                         self.take_cycles(2);
                     }
+                    0x90 => {
+                        // bcc -- relative
+                        let num_cycles = match self.processor_status.carry_flag {
+                            false => 2,
+                            true => {
+                                let relative_address = self.next_signed_word() as i16;
+                                let absolute_address = self.add_relative_address(relative_address);
+
+                                let num_cycles = match memory_map::crosses_page_boundary(self.reg_program_counter, absolute_address) {
+                                    false => 3,
+                                    true => 4
+                                };
+
+                                self.reg_program_counter = absolute_address;
+
+                                num_cycles
+                            }   
+                        };
+
+                        self.take_cycles(num_cycles);
+                    }
                     _ => panic!("unknown opcode: {:x}", &opcode),
                 };
             }
