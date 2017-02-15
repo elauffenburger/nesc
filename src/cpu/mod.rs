@@ -68,30 +68,30 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         let (result, overflowed) = val.overflowing_shr(1);
 
                         self.write(mem_loc, result);
-                        self.processor_status.last_instruction_overunderflow = overflowed;
+                        self.processor_status.carry_flag = overflowed;
 
                         self.take_cycles(3);
-                    },
+                    }
                     0x9a => {
                         // txs -- implied
                         self.reg_stack_pointer = self.reg_index_x;
 
                         self.take_cycles(2);
-                    },
+                    }
                     0x4c => {
                         // jmp -- absolute
                         let address = self.next_double_word();
                         self.reg_program_counter = address;
 
                         self.take_cycles(3);
-                    },
+                    }
                     0xa2 => {
                         // ldx -- immediate
                         let immediate = self.next_word();
                         self.reg_index_x = immediate;
 
                         self.take_cycles(2);
-                    },
+                    }
                     0x86 => {
                         // stx -- zero page
                         let address = self.next_word();
@@ -100,7 +100,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         self.write(address as u16, x);
 
                         self.take_cycles(3);
-                    },
+                    }
                     0x20 => {
                         // jsr -- absolute
                         let address = self.next_double_word();
@@ -112,21 +112,24 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         self.reg_program_counter = address + 1;
 
                         self.take_cycles(6);
-                    },
+                    }
                     0x38 => {
                         // sec -- immediate
-                        self.processor_status.last_instruction_overunderflow = true;
+                        self.processor_status.carry_flag = true;
 
                         self.take_cycles(2);
-                    },
+                    }
                     0xb0 => {
                         // bcs -- relative
-                        let relative_address = self.next_word();
-                        
-                        let num_cycles = match self.processor_status.last_instruction_overunderflow {
+
+                        // relative values are signed
+                        let relative_address = self.next_signed_word() as i16;
+
+                        let num_cycles = match self.processor_status.carry_flag {
                             false => 2,
                             _ => {
-                                let absolute_address = self.reg_program_counter.wrapping_add(relative_address as u16);
+                                let absolute_address = self.add_relative_address(relative_address);
+
                                 let num_cycles = match memory_map::crosses_page_boundary(self.reg_program_counter, absolute_address) {
                                     false => 3,
                                     true => 4
@@ -139,14 +142,14 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         };
 
                         self.take_cycles(num_cycles);
-                    },
+                    }
                     0xea => {
                         // nop -- implied
                         self.take_cycles(2);
-                    },
+                    }
                     0x18 => {
                         // clc -- implied
-                        self.processor_status.last_instruction_overunderflow = false;
+                        self.processor_status.carry_flag = false;
 
                         self.take_cycles(2);
                     }
@@ -248,6 +251,10 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
         double_word
     }
 
+    fn next_signed_word(&mut self) -> i8 {
+        self.next_word() as i8
+    }
+
     fn take_cycles(&mut self, cycles: u8) {
         self.pending_cycles = cycles;
     }
@@ -255,12 +262,19 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
     pub fn resolve_stack_pointer(&self) -> u16 {
         memory_map::STACK_START + (self.reg_stack_pointer as u16)
     }
+
+    fn add_relative_address(&self, relative_address: i16) -> u16 {
+        match relative_address >= 0 {
+            true => self.reg_program_counter.wrapping_add(relative_address as u16),
+            false => self.reg_program_counter.wrapping_sub(relative_address as u16),
+        }
+    }
 }
 
 #[derive(Default, Debug)]
 pub struct ProcessorStatus {
     // Carry Flag (C)
-    last_instruction_overunderflow: bool,
+    carry_flag: bool,
 
     // Zero Flag (Z)
     last_instruction_zero: bool,
