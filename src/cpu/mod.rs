@@ -143,6 +143,12 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                     0xea => {
                         // nop -- implied
                         self.take_cycles(2);
+                    },
+                    0x18 => {
+                        // clc -- implied
+                        self.processor_status.last_instruction_overunderflow = false;
+
+                        self.take_cycles(2);
                     }
                     _ => panic!("unknown opcode: {:x}", &opcode),
                 };
