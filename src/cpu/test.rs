@@ -1,4 +1,6 @@
+#[allow(unused_imports)]
 use ::memory_map;
+#[allow(unused_imports)]
 use super::Cpu;
 
 #[test]
