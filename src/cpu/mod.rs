@@ -122,26 +122,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                     0xb0 => {
                         // bcs -- relative
 
-                        // relative values are signed
-                        let relative_address = self.next_signed_word() as i16;
-
-                        let num_cycles = match self.processor_status.carry_flag {
-                            false => 2,
-                            _ => {
-                                let absolute_address = self.add_relative_address(relative_address);
-
-                                let num_cycles = match memory_map::crosses_page_boundary(self.reg_program_counter, absolute_address) {
-                                    false => 3,
-                                    true => 4
-                                };
-
-                                self.reg_program_counter = absolute_address;
-
-                                num_cycles
-                            }
-                        };
-
-                        self.take_cycles(num_cycles);
+                        self.do_branch_carry_instruction(true);
                     }
                     0xea => {
                         // nop -- implied
@@ -155,24 +136,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                     }
                     0x90 => {
                         // bcc -- relative
-                        let num_cycles = match self.processor_status.carry_flag {
-                            false => 2,
-                            true => {
-                                let relative_address = self.next_signed_word() as i16;
-                                let absolute_address = self.add_relative_address(relative_address);
-
-                                let num_cycles = match memory_map::crosses_page_boundary(self.reg_program_counter, absolute_address) {
-                                    false => 3,
-                                    true => 4
-                                };
-
-                                self.reg_program_counter = absolute_address;
-
-                                num_cycles
-                            }   
-                        };
-
-                        self.take_cycles(num_cycles);
+                        self.do_branch_carry_instruction(false);
                     }
                     _ => panic!("unknown opcode: {:x}", &opcode),
                 };
@@ -289,6 +253,30 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
             true => self.reg_program_counter.wrapping_add(relative_address as u16),
             false => self.reg_program_counter.wrapping_sub(relative_address as u16),
         }
+    }
+
+    fn do_branch_carry_instruction(&mut self, branch_if_flag_set: bool) {
+        // relative values are signed
+        let relative_address = self.next_signed_word() as i16;
+        let is_set = self.processor_status.carry_flag;
+
+        let num_cycles = match () {
+            _ if branch_if_flag_set == is_set => 2,
+            _ => {
+                let absolute_address = self.add_relative_address(relative_address);
+
+                let num_cycles = match memory_map::crosses_page_boundary(self.reg_program_counter, absolute_address) {
+                    false => 3,
+                    true => 4,
+                };
+
+                self.reg_program_counter = absolute_address;
+
+                num_cycles
+            }
+        };
+
+        self.take_cycles(num_cycles);
     }
 }
 
