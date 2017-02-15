@@ -140,6 +140,10 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
 
                         self.take_cycles(num_cycles);
                     },
+                    0xea => {
+                        // nop -- implied
+                        self.take_cycles(2);
+                    }
                     _ => panic!("unknown opcode: {:x}", &opcode),
                 };
             }
