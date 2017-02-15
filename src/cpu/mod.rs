@@ -5,7 +5,6 @@ use ::memory_map::MemoryMapper;
 use ::rom;
 
 use std::fmt::Debug;
-use std::num::Wrapping;
 
 // [Cpu]
 // The heart of the system: a MOS 6502 (really, a Ricoh clone)
@@ -72,27 +71,27 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         self.processor_status.last_instruction_overunderflow = overflowed;
 
                         self.take_cycles(3);
-                    }
+                    },
                     0x9a => {
                         // txs -- implied
                         self.reg_stack_pointer = self.reg_index_x;
 
                         self.take_cycles(2);
-                    }
+                    },
                     0x4c => {
                         // jmp -- absolute
                         let address = self.next_double_word();
                         self.reg_program_counter = address;
 
                         self.take_cycles(3);
-                    }
+                    },
                     0xa2 => {
                         // ldx -- immediate
                         let immediate = self.next_word();
                         self.reg_index_x = immediate;
 
                         self.take_cycles(2);
-                    }
+                    },
                     0x86 => {
                         // stx -- zero page
                         let address = self.next_word();
@@ -101,7 +100,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         self.write(address as u16, x);
 
                         self.take_cycles(3);
-                    }
+                    },
                     0x20 => {
                         // jsr -- absolute
                         let address = self.next_double_word();
@@ -113,18 +112,18 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         self.reg_program_counter = address + 1;
 
                         self.take_cycles(6);
-                    }
+                    },
                     0x38 => {
                         // sec -- immediate
                         self.processor_status.last_instruction_overunderflow = true;
 
                         self.take_cycles(2);
-                    }
+                    },
                     0xb0 => {
                         // bcs -- relative
                         let relative_address = self.next_word();
                         
-                        let mut num_cycles = match self.processor_status.last_instruction_overunderflow {
+                        let num_cycles = match self.processor_status.last_instruction_overunderflow {
                             false => 2,
                             _ => {
                                 let absolute_address = self.reg_program_counter.wrapping_add(relative_address as u16);
@@ -140,8 +139,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         };
 
                         self.take_cycles(num_cycles);
-                    }
-
+                    },
                     _ => panic!("unknown opcode: {:x}", &opcode),
                 };
             }

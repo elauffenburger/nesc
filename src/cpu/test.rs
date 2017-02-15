@@ -1,6 +1,3 @@
-use ::memory_map;
-use super::Cpu;
-
 #[test]
 fn test_push_pop() {
     let mut cpu: Cpu<memory_map::NROMMemoryMap> = Cpu::default();

@@ -6,6 +6,7 @@ use std::io::Read;
 use std::fmt;
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct NesRom {
     pub prg_rom: Vec<u8>,
 

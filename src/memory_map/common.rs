@@ -1,5 +1,3 @@
-use super::constants;
-
 pub fn write_memory(memory: &mut Vec<u8>, starting_at: usize, len: usize, buf: &[u8]) {
     for i in 0..len {
         let address = starting_at + i;
