@@ -138,6 +138,14 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         // bcc -- relative
                         self.do_branch_carry_instruction(false);
                     }
+                    0xa9 => {
+                        // lda -- immediate
+                        let immediate = self.next_double_word();
+
+                        self.reg_accumulator = self.read(immediate);
+
+                        self.take_cycles(2);
+                    }
                     _ => panic!("unknown opcode: {:x}", &opcode),
                 };
             }

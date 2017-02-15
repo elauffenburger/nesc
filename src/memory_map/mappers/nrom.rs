@@ -67,15 +67,19 @@ impl NROMMemoryMap {
     fn write_direct(&mut self, address: u16, val: u8) {
         self.memory[address as usize] = val;
     }
+
+    fn resolve_address(address: u16) -> u16 {
+        match NROMMemoryMap::get_mirror_region_for_address(address) {
+            MirrorRegion::One => NROMMemoryMap::resolve_address_in_region_one(address),
+            MirrorRegion::Two => NROMMemoryMap::resolve_address_in_region_two(address),
+            MirrorRegion::None => address,
+        }
+    }
 }
 
 impl MemoryMapper for NROMMemoryMap {
     fn read(&self, address: u16) -> u8 {
-        let address = match NROMMemoryMap::get_mirror_region_for_address(address) {
-            MirrorRegion::One => NROMMemoryMap::resolve_address_in_region_one(address),
-            MirrorRegion::Two => NROMMemoryMap::resolve_address_in_region_two(address),
-            MirrorRegion::None => address,
-        };
+        let address = NROMMemoryMap::resolve_address(address);
 
         self.memory[address as usize]
     }
