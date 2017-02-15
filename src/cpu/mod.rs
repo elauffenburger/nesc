@@ -163,8 +163,8 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                     }
                     0xa9 => {
                         // lda -- immediate
-                        let immediate = self.next_double_word();
-                        self.reg_accumulator = self.read(immediate);
+                        let immediate = self.next_word();
+                        self.reg_accumulator = self.read(immediate as u16);
 
                         self.debug_write(format!("lda {:#x}", immediate));
 
