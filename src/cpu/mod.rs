@@ -103,7 +103,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                     }
                     0x86 => {
                         // stx -- zero page
-                        let address = (self.next_word() & (0x00ff)) as u16;
+                        let address = self.next_word() as u16;
                         let x = self.reg_index_x;
 
                         self.write(address as u16, x);
@@ -189,13 +189,26 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                     }
                     0x85 => {
                         // sta -- zero page
-                        let address = (self.next_word() & (0x00ff)) as u16;
+                        let address = self.next_word() as u16;
                         let acc = self.reg_accumulator;
 
                         self.write(address, acc as u8);
                         self.take_cycles(3);
 
                         self.debug_write_instr(pc, format!("sta {:#x}", address));
+                    }
+                    0x24 => {
+                        // bit -- zero page
+                        let address = self.next_word() as u16;
+                        let value = self.read(address) as i8;
+                        let result = self.reg_accumulator & value;
+
+                        self.processor_status.last_instruction_zero = result == 0;
+                        self.processor_status.last_operation_result_negative = ((result & (0b0100_0000)) >> 7) == 1;
+                        self.processor_status.invalid_twos_complement_result = ((result & (0b0010_0000)) >> 6) == 1;
+                        self.take_cycles(3);
+
+                        self.debug_write_instr(pc, format!("bit {:#x}", address));
                     }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
