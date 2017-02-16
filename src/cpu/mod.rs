@@ -210,6 +210,15 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
 
                         self.debug_write_instr(pc, format!("bit {:#x}", address));
                     }
+                    0x70 => {
+                        // bvs -- relative
+                        let relative_address = self.next_signed_word();
+                        let take_branch = self.processor_status.invalid_twos_complement_result;
+
+                        let absolute_address = self.do_branch_instruction(relative_address, take_branch);
+
+                        self.debug_write_instr(pc, format!("bvs {:#x}", absolute_address));
+                    }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
             }
