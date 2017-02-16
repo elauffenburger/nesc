@@ -58,6 +58,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
         match self.pending_cycles {
             0 => {
                 // println!("{:#?}", &self);
+                let pc = self.reg_program_counter;
 
                 let opcode = self.next_word();
 
@@ -72,7 +73,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         self.write(mem_loc, result);
                         self.processor_status.carry_flag = overflowed;
 
-                        self.debug_write_instr(format!("lsr {:#x}", &result));
+                        self.debug_write_instr(pc, format!("lsr {:#x}", &result));
 
                         self.take_cycles(3);
                     }
@@ -80,7 +81,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         // txs -- implied
                         self.reg_stack_pointer = self.reg_index_x;
 
-                        self.debug_write_instr_str("txs");
+                        self.debug_write_instr_str(pc, "txs");
 
                         self.take_cycles(2);
                     }
@@ -89,7 +90,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         let address = self.next_double_word();
                         self.reg_program_counter = address;
 
-                        self.debug_write_instr(format!("jmp {:#x}", &address));
+                        self.debug_write_instr(pc, format!("jmp {:#x}", &address));
 
                         self.take_cycles(3);
                     }
@@ -98,7 +99,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         let immediate = self.next_word();
                         self.reg_index_x = immediate;
 
-                        self.debug_write_instr(format!("ldx {:#x}", &immediate));
+                        self.debug_write_instr(pc, format!("ldx {:#x}", &immediate));
 
                         self.take_cycles(2);
                     }
@@ -109,7 +110,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
 
                         self.write(address as u16, x);
 
-                        self.debug_write_instr(format!("stx {:#x}", &address));
+                        self.debug_write_instr(pc, format!("stx {:#x}", &address));
 
                         self.take_cycles(3);
                     }
@@ -123,7 +124,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
 
                         self.reg_program_counter = address + 1;
 
-                        self.debug_write_instr(format!("jsr {:#x}", &address));
+                        self.debug_write_instr(pc, format!("jsr {:#x}", &address));
 
                         self.take_cycles(6);
                     }
@@ -131,19 +132,19 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         // sec -- immediate
                         self.processor_status.carry_flag = true;
 
-                        self.debug_write_instr_str("sec");
+                        self.debug_write_instr_str(pc, "sec");
 
                         self.take_cycles(2);
                     }
                     0xb0 => {
                         // bcs -- relative
-                        self.debug_write_instr_str("bcs");
+                        self.debug_write_instr_str(pc, "bcs");
 
                         self.do_branch_carry_instruction(true);
                     }
                     0xea => {
                         // nop -- implied
-                        self.debug_write_instr_str("nop");
+                        self.debug_write_instr_str(pc, "nop");
 
                         self.take_cycles(2);
                     }
@@ -151,13 +152,13 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         // clc -- implied
                         self.processor_status.carry_flag = false;
 
-                        self.debug_write_instr_str("clc");
+                        self.debug_write_instr_str(pc, "clc");
 
                         self.take_cycles(2);
                     }
                     0x90 => {
                         // bcc -- relative
-                        self.debug_write_instr_str("bcc");
+                        self.debug_write_instr_str(pc, "bcc");
 
                         self.do_branch_carry_instruction(false);
                     }
@@ -171,16 +172,25 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
 
                         self.reg_accumulator = value;
 
-                        self.debug_write_instr(format!("lda {:#x}", immediate));
+                        self.debug_write_instr(pc, format!("lda {:#x}", immediate));
 
                         self.take_cycles(2);
                     }
                     0xf0 => {
                         // beq -- relative
-                        let relative_address = self.next_word() as i8;
+                        let relative_address = self.next_signed_word();
                         let take_branch = self.processor_status.last_instruction_zero;
 
-                        self.debug_write_instr_str("beq");
+                        self.debug_write_instr_str(pc, "beq");
+
+                        self.do_branch_instruction(relative_address, take_branch);
+                    }
+                    0xd0 => {
+                        // bne -- relative
+                        let relative_address = self.next_signed_word();
+                        let take_branch = !self.processor_status.last_instruction_zero;
+
+                        self.debug_write_instr_str(pc, "bne");
 
                         self.do_branch_instruction(relative_address, take_branch);
                     }
@@ -188,7 +198,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                 };
             }
             ref cycles => {
-                // self.debug_write_instr(format!("waiting for {} more cycles", cycles));
+                // self.debug_write_instr(pc, format!("waiting for {} more cycles", cycles));
             }
         }
 
@@ -303,7 +313,7 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
 
     fn do_branch_carry_instruction(&mut self, branch_if_flag_set: bool) {
         // relative values are signed
-        let relative_address = self.next_signed_word() as i8;
+        let relative_address = self.next_signed_word();
 
         let is_set = self.processor_status.carry_flag;
         let take_branch = branch_if_flag_set != is_set;
@@ -332,12 +342,12 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
     }
 
     #[allow(unused_must_use)]
-    fn debug_write_instr(&self, string: String) {
-        io::stdout().write(format!("{:#x}: {}\n", self.reg_program_counter, string).as_bytes());
+    fn debug_write_instr(&self, pc: u16, string: String) {
+        io::stdout().write(format!("{:#x}: {}\n", pc, string).as_bytes());
     }
 
-    fn debug_write_instr_str(&self, string: &'static str) {
-        self.debug_write_instr(string.to_string());
+    fn debug_write_instr_str(&self, pc: u16, string: &'static str) {
+        self.debug_write_instr(pc, string.to_string());
     }
 }
 
