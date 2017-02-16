@@ -70,49 +70,46 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         let val = self.read(mem_loc);
                         let (result, overflowed) = val.overflowing_shr(1);
 
-                        self.write(mem_loc, result);
                         self.processor_status.carry_flag = overflowed;
+                        self.write(mem_loc, result);
+                        self.take_cycles(3);
 
                         self.debug_write_instr(pc, format!("lsr {:#x}", &result));
-
-                        self.take_cycles(3);
                     }
                     0x9a => {
                         // txs -- implied
                         self.reg_stack_pointer = self.reg_index_x;
+                        self.take_cycles(2);
 
                         self.debug_write_instr_str(pc, "txs");
-
-                        self.take_cycles(2);
                     }
                     0x4c => {
                         // jmp -- absolute
                         let address = self.next_double_word();
+
                         self.reg_program_counter = address;
+                        self.take_cycles(3);
 
                         self.debug_write_instr(pc, format!("jmp {:#x}", &address));
-
-                        self.take_cycles(3);
                     }
                     0xa2 => {
                         // ldx -- immediate
                         let immediate = self.next_word();
+
                         self.reg_index_x = immediate;
+                        self.take_cycles(2);
 
                         self.debug_write_instr(pc, format!("ldx {:#x}", &immediate));
-
-                        self.take_cycles(2);
                     }
                     0x86 => {
                         // stx -- zero page
-                        let address = self.next_word();
+                        let address = (self.next_word() & (0x00ff)) as u16;
                         let x = self.reg_index_x;
 
                         self.write(address as u16, x);
+                        self.take_cycles(3);
 
                         self.debug_write_instr(pc, format!("stx {:#x}", &address));
-
-                        self.take_cycles(3);
                     }
                     0x20 => {
                         // jsr -- absolute
@@ -123,44 +120,41 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         self.push_u16(pc);
 
                         self.reg_program_counter = address + 1;
+                        self.take_cycles(6);
 
                         self.debug_write_instr(pc, format!("jsr {:#x}", &address));
-
-                        self.take_cycles(6);
                     }
                     0x38 => {
                         // sec -- immediate
                         self.processor_status.carry_flag = true;
+                        self.take_cycles(2);
 
                         self.debug_write_instr_str(pc, "sec");
-
-                        self.take_cycles(2);
                     }
                     0xb0 => {
                         // bcs -- relative
-                        self.debug_write_instr_str(pc, "bcs");
+                        let absolute_address = self.do_branch_carry_instruction(true);
 
-                        self.do_branch_carry_instruction(true);
+                        self.debug_write_instr(pc, format!("bcs {:#x}", absolute_address));
                     }
                     0xea => {
                         // nop -- implied
-                        self.debug_write_instr_str(pc, "nop");
-
                         self.take_cycles(2);
+
+                        self.debug_write_instr_str(pc, "nop");
                     }
                     0x18 => {
                         // clc -- implied
                         self.processor_status.carry_flag = false;
+                        self.take_cycles(2);
 
                         self.debug_write_instr_str(pc, "clc");
-
-                        self.take_cycles(2);
                     }
                     0x90 => {
                         // bcc -- relative
-                        self.debug_write_instr_str(pc, "bcc");
+                        let absolute_address = self.do_branch_carry_instruction(false);
 
-                        self.do_branch_carry_instruction(false);
+                        self.debug_write_instr(pc, format!("bcc {:#x}", absolute_address));
                     }
                     0xa9 => {
                         // lda -- immediate
@@ -171,28 +165,37 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                         self.processor_status.last_operation_result_negative = value < 0;
 
                         self.reg_accumulator = value;
+                        self.take_cycles(2);
 
                         self.debug_write_instr(pc, format!("lda {:#x}", immediate));
-
-                        self.take_cycles(2);
                     }
                     0xf0 => {
                         // beq -- relative
                         let relative_address = self.next_signed_word();
                         let take_branch = self.processor_status.last_instruction_zero;
 
-                        self.debug_write_instr_str(pc, "beq");
+                        let absolute_address = self.do_branch_instruction(relative_address, take_branch);
 
-                        self.do_branch_instruction(relative_address, take_branch);
+                        self.debug_write_instr(pc, format!("beq {:#x}", absolute_address));
                     }
                     0xd0 => {
                         // bne -- relative
                         let relative_address = self.next_signed_word();
-                        let take_branch = !self.processor_status.last_instruction_zero;
+                        let take_branch = self.processor_status.last_instruction_zero;
 
-                        self.debug_write_instr_str(pc, "bne");
+                        let absolute_address = self.do_branch_instruction(relative_address, take_branch);
 
-                        self.do_branch_instruction(relative_address, take_branch);
+                        self.debug_write_instr(pc, format!("bne {:#x}", absolute_address));
+                    }
+                    0x85 => {
+                        // sta -- zero page
+                        let address = (self.next_word() & (0x00ff)) as u16;
+                        let acc = self.reg_accumulator;
+
+                        self.write(address, acc as u8);
+                        self.take_cycles(3);
+
+                        self.debug_write_instr(pc, format!("sta {:#x}", address));
                     }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
@@ -311,21 +314,22 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
         }
     }
 
-    fn do_branch_carry_instruction(&mut self, branch_if_flag_set: bool) {
+    fn do_branch_carry_instruction(&mut self, branch_if_flag_set: bool) -> u16 {
         // relative values are signed
         let relative_address = self.next_signed_word();
 
         let is_set = self.processor_status.carry_flag;
         let take_branch = branch_if_flag_set != is_set;
 
-        self.do_branch_instruction(relative_address, take_branch);
+        self.do_branch_instruction(relative_address, take_branch)
     }
 
-    fn do_branch_instruction(&mut self, relative_address: i8, take_branch: bool) {
+    fn do_branch_instruction(&mut self, relative_address: i8, take_branch: bool) -> u16 {
+        let absolute_address = self.add_relative_address(relative_address as i16);
+
         let num_cycles = match () {
             _ if !take_branch => 2,
             _ => {
-                let absolute_address = self.add_relative_address(relative_address as i16);
 
                 let num_cycles = match memory_map::crosses_page_boundary(self.reg_program_counter, absolute_address) {
                     false => 3,
@@ -339,6 +343,8 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
         };
 
         self.take_cycles(num_cycles);
+
+        absolute_address
     }
 
     #[allow(unused_must_use)]
