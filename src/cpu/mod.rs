@@ -222,6 +222,16 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
 
                         self.debug_write_instr(pc, format!("bvc {:#x}", absolute_address));
                     }
+                    0x69 => {
+                        // adc -- immediate
+                        let immediate = self.next_signed_word();
+                        let (result, carry) = self.reg_accumulator.overflowing_add(immediate).0.overflowing_add(self.processor_status.carry_flag as i8);
+
+                        self.reg_accumulator = result;
+                        self.processor_status.carry_flag = carry;
+
+                        self.take_cycles(2);
+                    }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
             }
