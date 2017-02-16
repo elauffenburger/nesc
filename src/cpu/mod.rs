@@ -212,12 +212,15 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
                     }
                     0x70 => {
                         // bvs -- relative
-                        let relative_address = self.next_signed_word();
-                        let take_branch = self.processor_status.invalid_twos_complement_result;
-
-                        let absolute_address = self.do_branch_instruction(relative_address, take_branch);
+                        let absolute_address = self.do_branch_overflow_instruction(true);
 
                         self.debug_write_instr(pc, format!("bvs {:#x}", absolute_address));
+                    }
+                    0x50 => {
+                        // bvc -- relative
+                        let absolute_address = self.do_branch_overflow_instruction(false);
+
+                        self.debug_write_instr(pc, format!("bvc {:#x}", absolute_address));
                     }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
@@ -334,6 +337,13 @@ impl<T: MemoryMapper + Debug> Cpu<T> {
             true => self.reg_program_counter.wrapping_add(relative_address as u16),
             false => self.reg_program_counter.wrapping_sub(relative_address as u16),
         }
+    }
+
+    fn do_branch_overflow_instruction(&mut self, branch_if_flag_set: bool) -> u16 {
+        let relative_address = self.next_signed_word();
+        let take_branch = self.processor_status.invalid_twos_complement_result == branch_if_flag_set;
+
+        self.do_branch_instruction(relative_address, take_branch)
     }
 
     fn do_branch_carry_instruction(&mut self, branch_if_flag_set: bool) -> u16 {
