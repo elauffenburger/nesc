@@ -58,7 +58,7 @@ pub fn bcc<T: MemoryMapper>(cpu: &mut Cpu<T>) {
 
 pub fn beq<T: MemoryMapper>(cpu: &mut Cpu<T>) {
     let relative_address = cpu.next_signed_word();
-    let take_branch = cpu.processor_status.last_instruction_zero;
+    let take_branch = cpu.processor_status.zero;
 
     let absolute_address = do_branch_instruction(cpu, relative_address, take_branch);
 
@@ -67,7 +67,7 @@ pub fn beq<T: MemoryMapper>(cpu: &mut Cpu<T>) {
 
 pub fn bne<T: MemoryMapper>(cpu: &mut Cpu<T>) {
     let relative_address = cpu.next_signed_word();
-    let take_branch = cpu.processor_status.last_instruction_zero;
+    let take_branch = cpu.processor_status.zero;
 
     let absolute_address = do_branch_instruction(cpu, relative_address, take_branch);
 
@@ -88,7 +88,7 @@ pub fn bvc<T: MemoryMapper>(cpu: &mut Cpu<T>) {
 
 pub fn bpl<T: MemoryMapper>(cpu: &mut Cpu<T>) {
     let relative_address = cpu.next_word() as i8;
-    let take_branch = cpu.processor_status.last_operation_result_negative == false;
+    let take_branch = cpu.processor_status.negative == false;
 
     let absolute_addr = do_branch_instruction(cpu, relative_address, take_branch);
 

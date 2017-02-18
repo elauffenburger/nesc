@@ -4,7 +4,7 @@ pub struct ProcessorStatus {
     pub carry_flag: bool,
 
     // Zero Flag (Z)
-    pub last_instruction_zero: bool,
+    pub zero: bool,
 
     // Interrupt Disable (I)
     pub interrupts_disabled: bool,
@@ -21,7 +21,7 @@ pub struct ProcessorStatus {
     pub overflow_flag: bool,
 
     // Negative Flag (N)
-    pub last_operation_result_negative: bool,
+    pub negative: bool,
 }
 
 impl ProcessorStatus {
@@ -29,7 +29,7 @@ impl ProcessorStatus {
         // the starting result
         let mut result = 0b0001_0000;
 
-        if self.last_operation_result_negative {
+        if self.negative {
             result |= 1 << 7;
         }
 

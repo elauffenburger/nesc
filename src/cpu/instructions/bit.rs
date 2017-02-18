@@ -8,8 +8,8 @@ pub fn bit_zero_page<T: MemoryMapper>(cpu: &mut Cpu<T>) {
     let value = cpu.read(address) as i8;
     let result = cpu.reg_accumulator & value;
 
-    cpu.processor_status.last_instruction_zero = result == 0;
-    cpu.processor_status.last_operation_result_negative = result < 0;
+    cpu.processor_status.zero = result == 0;
+    cpu.processor_status.negative = result < 0;
     cpu.processor_status.overflow_flag = ((result & (0b0100_0000)) >> 6) == 1;
 
     cpu.take_cycles(3);

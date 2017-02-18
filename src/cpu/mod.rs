@@ -168,8 +168,8 @@ impl<T: MemoryMapper> Cpu<T> {
                         // lda -- immediate
                         let immediate = self.next_signed_word();
 
-                        self.processor_status.last_instruction_zero = immediate == 0;
-                        self.processor_status.last_operation_result_negative = immediate < 0;
+                        self.processor_status.zero = immediate == 0;
+                        self.processor_status.negative = immediate < 0;
 
                         self.reg_accumulator = immediate;
                         self.take_cycles(2);
@@ -255,6 +255,21 @@ impl<T: MemoryMapper> Cpu<T> {
                         self.take_cycles(4);
 
                         self.set_last_instr_disasm_str("pla");
+                    }
+                    0x29 => {
+                        // and -- immediate
+
+                        let immediate = self.next_signed_word();
+                        let acc = self.reg_accumulator;
+                        let result = acc & immediate;
+
+                        self.processor_status.negative = result < 0;
+                        self.processor_status.zero = result == 0;
+
+                        self.reg_accumulator = result;
+                        self.take_cycles(2);
+
+                        self.set_last_instr_disasm(format!("and {:#x}", result));
                     }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
