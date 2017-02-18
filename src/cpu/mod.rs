@@ -271,6 +271,14 @@ impl<T: MemoryMapper> Cpu<T> {
 
                         self.set_last_instr_disasm_str("php");
                     }
+                    0x68 => {
+                        // pla -- implied
+                        self.reg_accumulator = self.pop() as i8;
+
+                        self.take_cycles(4);
+
+                        self.set_last_instr_disasm_str("pla");
+                    }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
 
