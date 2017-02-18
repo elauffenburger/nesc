@@ -2,8 +2,12 @@ pub mod instructions;
 
 mod processor_status;
 mod test;
+mod debug;
+mod stack;
 
 pub use self::processor_status::*;
+pub use self::debug::*;
+pub use self::stack::*;
 
 use ::memory_map;
 use ::memory_map::MemoryMapper;
@@ -141,9 +145,7 @@ impl<T: MemoryMapper> Cpu<T> {
                     }
                     0xb0 => {
                         // bcs -- relative
-                        let absolute_address = self.do_branch_carry_instruction(true);
-
-                        self.set_last_instr_disasm(format!("bcs {:#x}", absolute_address));
+                        instructions::branch::bcs(self);
                     }
                     0xea => {
                         // nop -- implied
@@ -160,9 +162,7 @@ impl<T: MemoryMapper> Cpu<T> {
                     }
                     0x90 => {
                         // bcc -- relative
-                        let absolute_address = self.do_branch_carry_instruction(false);
-
-                        self.set_last_instr_disasm(format!("bcc {:#x}", absolute_address));
+                        instructions::branch::bcc(self);
                     }
                     0xa9 => {
                         // lda -- immediate
@@ -178,21 +178,11 @@ impl<T: MemoryMapper> Cpu<T> {
                     }
                     0xf0 => {
                         // beq -- relative
-                        let relative_address = self.next_signed_word();
-                        let take_branch = self.processor_status.last_instruction_zero;
-
-                        let absolute_address = self.do_branch_instruction(relative_address, take_branch);
-
-                        self.set_last_instr_disasm(format!("beq {:#x}", absolute_address));
+                        instructions::branch::beq(self);
                     }
                     0xd0 => {
                         // bne -- relative
-                        let relative_address = self.next_signed_word();
-                        let take_branch = self.processor_status.last_instruction_zero;
-
-                        let absolute_address = self.do_branch_instruction(relative_address, take_branch);
-
-                        self.set_last_instr_disasm(format!("bne {:#x}", absolute_address));
+                        instructions::branch::bne(self);
                     }
                     0x85 => {
                         // sta -- zero page
@@ -210,15 +200,11 @@ impl<T: MemoryMapper> Cpu<T> {
                     }
                     0x70 => {
                         // bvs -- relative
-                        let absolute_addr = self.do_branch_overflow_instruction(true);
-
-                        self.set_last_instr_disasm(format!("bvs {:#x}", absolute_addr));
+                        instructions::branch::bvs(self);
                     }
                     0x50 => {
                         // bvc -- relative
-                        let absolute_addr = self.do_branch_overflow_instruction(false);
-
-                        self.set_last_instr_disasm(format!("bvc {:#x}", absolute_addr));
+                        instructions::branch::bvc(self);
                     }
                     0x69 => {
                         // adc -- immediate
@@ -226,12 +212,7 @@ impl<T: MemoryMapper> Cpu<T> {
                     }
                     0x10 => {
                         // bpl -- relative
-                        let relative_address = self.next_word() as i8;
-                        let take_branch = self.processor_status.last_operation_result_negative == false;
-
-                        let absolute_addr = self.do_branch_instruction(relative_address, take_branch);
-
-                        self.set_last_instr_disasm(format!("bpl {:#x}", absolute_addr));
+                        instructions::branch::bpl(self);
                     }
                     0x60 => {
                         // rts -- implied
@@ -247,7 +228,6 @@ impl<T: MemoryMapper> Cpu<T> {
                     0x78 => {
                         // sei -- implied
                         self.processor_status.interrupts_disabled = true;
-
                         self.take_cycles(2);
 
                         self.set_last_instr_disasm_str("sei");
@@ -255,7 +235,6 @@ impl<T: MemoryMapper> Cpu<T> {
                     0xf8 => {
                         // sed -- implied
                         self.processor_status.decimal_mode = true;
-
                         self.take_cycles(2);
 
                         self.set_last_instr_disasm_str("sed");
@@ -266,7 +245,6 @@ impl<T: MemoryMapper> Cpu<T> {
                         status.bit_four = true;
 
                         self.push(status.to_u8());
-
                         self.take_cycles(3);
 
                         self.set_last_instr_disasm_str("php");
@@ -274,7 +252,6 @@ impl<T: MemoryMapper> Cpu<T> {
                     0x68 => {
                         // pla -- implied
                         self.reg_accumulator = self.pop() as i8;
-
                         self.take_cycles(4);
 
                         self.set_last_instr_disasm_str("pla");
@@ -284,9 +261,7 @@ impl<T: MemoryMapper> Cpu<T> {
 
                 self.debug_write_instr(pc);
             }
-            ref cycles => {
-                // self.set_last_instr_disasm(format!("waiting for {} more cycles", cycles));
-            }
+            _ => {}
         }
 
         self.finish_cycle();
@@ -304,39 +279,6 @@ impl<T: MemoryMapper> Cpu<T> {
         }
     }
 
-    pub fn push(&mut self, value: u8) {
-        // write to sp
-        let sp = self.resolve_stack_pointer();
-        self.write(sp, value);
-
-        // decrement sp
-        self.reg_stack_pointer -= 1;
-    }
-
-    pub fn push_u16(&mut self, value: u16) {
-        // decrement sp
-        self.reg_stack_pointer -= 2;
-
-        // write to sp + 1
-        let sp = self.resolve_stack_pointer();
-        self.write_u16(sp + 1, value);
-    }
-
-    pub fn pop(&mut self) -> u8 {
-        self.reg_stack_pointer += 1;
-        let val = self.read(self.resolve_stack_pointer());
-
-        val
-    }
-
-    pub fn pop_u16(&mut self) -> u16 {
-        self.reg_stack_pointer += 2;
-
-        let val = self.read_u16(self.resolve_stack_pointer() - 1);
-
-        val
-    }
-
     pub fn init_registers(&mut self) {
         // set pc to prg_rom start address
         self.reg_program_counter = memory_map::PRG_ROM_START;
@@ -345,13 +287,15 @@ impl<T: MemoryMapper> Cpu<T> {
         self.reg_stack_pointer = (memory_map::STACK_SIZE - 1) as u8;
     }
 
-    pub fn exec_instr(&mut self, instruction: &[u8]) {
-        for i in 0..instruction.len() {
-            self.memory_map.write(self.reg_program_counter + (i as u16), instruction[i]);
-        }
-
-        self.step_instruction();
+    fn take_cycles(&mut self, cycles: u8) {
+        self.pending_cycles = cycles;
     }
+
+    fn finish_cycle(&mut self) {
+        self.pending_cycles -= 1;
+    }
+
+    // Memory Operations
 
     fn write_u16(&mut self, mem_loc: u16, val: u16) {
         self.memory_map.write_u16(mem_loc, val);
@@ -367,10 +311,6 @@ impl<T: MemoryMapper> Cpu<T> {
 
     fn read_u16(&self, address: u16) -> u16 {
         self.memory_map.read_u16(address)
-    }
-
-    fn finish_cycle(&mut self) {
-        self.pending_cycles -= 1;
     }
 
     fn next_word(&mut self) -> u8 {
@@ -391,14 +331,6 @@ impl<T: MemoryMapper> Cpu<T> {
         self.next_word() as i8
     }
 
-    fn take_cycles(&mut self, cycles: u8) {
-        self.pending_cycles = cycles;
-    }
-
-    pub fn resolve_stack_pointer(&self) -> u16 {
-        memory_map::STACK_START + (self.reg_stack_pointer as u16)
-    }
-
     fn add_relative_address(&self, relative_address: i16) -> u16 {
         match relative_address >= 0 {
             true => self.reg_program_counter.wrapping_add(relative_address as u16),
@@ -406,44 +338,22 @@ impl<T: MemoryMapper> Cpu<T> {
         }
     }
 
-    fn do_branch_overflow_instruction(&mut self, branch_if_flag_set: bool) -> u16 {
-        let relative_address = self.next_signed_word();
-        let take_branch = self.processor_status.overflow_flag == branch_if_flag_set;
+    // General Methods
 
-        self.do_branch_instruction(relative_address, take_branch)
+    #[allow(unused_must_use)]
+    fn debug_write_instr(&self, pc: u16) {
+        io::stdout().write(format!("{:#x}: {}\n", pc, self.last_instr_disasm).as_bytes());
     }
+}
 
-    fn do_branch_carry_instruction(&mut self, branch_if_flag_set: bool) -> u16 {
-        // relative values are signed
-        let relative_address = self.next_signed_word();
+// Debug Operations
+impl<T: MemoryMapper> CpuDebug for Cpu<T> {
+    fn exec_instr(&mut self, instruction: &[u8]) {
+        for i in 0..instruction.len() {
+            self.memory_map.write(self.reg_program_counter + (i as u16), instruction[i]);
+        }
 
-        let is_set = self.processor_status.carry_flag;
-        let take_branch = branch_if_flag_set != is_set;
-
-        self.do_branch_instruction(relative_address, take_branch)
-    }
-
-    fn do_branch_instruction(&mut self, relative_address: i8, take_branch: bool) -> u16 {
-        let absolute_address = self.add_relative_address(relative_address as i16);
-
-        let num_cycles = match () {
-            _ if !take_branch => 2,
-            _ => {
-
-                let num_cycles = match memory_map::crosses_page_boundary(self.reg_program_counter, absolute_address) {
-                    false => 3,
-                    true => 4,
-                };
-
-                self.reg_program_counter = absolute_address;
-
-                num_cycles
-            }
-        };
-
-        self.take_cycles(num_cycles);
-
-        absolute_address
+        self.step_instruction();
     }
 
     fn set_last_instr_disasm(&mut self, disassembly: String) {
@@ -453,9 +363,44 @@ impl<T: MemoryMapper> Cpu<T> {
     fn set_last_instr_disasm_str(&mut self, disassembly: &'static str) {
         self.last_instr_disasm = disassembly.to_string();
     }
+}
 
-    #[allow(unused_must_use)]
-    fn debug_write_instr(&self, pc: u16) {
-        io::stdout().write(format!("{:#x}: {}\n", pc, self.last_instr_disasm).as_bytes());
+// Stack Operations
+impl<T: MemoryMapper> CpuStack for Cpu<T> {
+    fn resolve_stack_pointer(&self) -> u16 {
+        memory_map::STACK_START + (self.reg_stack_pointer as u16)
+    }
+
+    fn push(&mut self, value: u8) {
+        // write to sp
+        let sp = self.resolve_stack_pointer();
+        self.write(sp, value);
+
+        // decrement sp
+        self.reg_stack_pointer -= 1;
+    }
+
+    fn push_u16(&mut self, value: u16) {
+        // decrement sp
+        self.reg_stack_pointer -= 2;
+
+        // write to sp + 1
+        let sp = self.resolve_stack_pointer();
+        self.write_u16(sp + 1, value);
+    }
+
+    fn pop(&mut self) -> u8 {
+        self.reg_stack_pointer += 1;
+        let val = self.read(self.resolve_stack_pointer());
+
+        val
+    }
+
+    fn pop_u16(&mut self) -> u16 {
+        self.reg_stack_pointer += 2;
+
+        let val = self.read_u16(self.resolve_stack_pointer() - 1);
+
+        val
     }
 }

@@ -1,7 +1,9 @@
-use ::cpu;
+use ::cpu::Cpu;
 use ::memory_map::MemoryMapper;
 
-pub fn bit_zero_page<T: MemoryMapper>(cpu: &mut cpu::Cpu<T>) {
+use ::cpu::CpuDebug;
+
+pub fn bit_zero_page<T: MemoryMapper>(cpu: &mut Cpu<T>) {
     let address = cpu.next_word() as u16;
     let value = cpu.read(address) as i8;
     let result = cpu.reg_accumulator & value;
