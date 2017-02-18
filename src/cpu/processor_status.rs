@@ -1,4 +1,4 @@
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct ProcessorStatus {
     // Carry Flag (C)
     pub carry_flag: bool,
@@ -12,6 +12,8 @@ pub struct ProcessorStatus {
     // Decimal Mode (D)
     pub decimal_mode: bool,
 
+    pub bit_four: bool,
+
     // Break Command (B)
     pub break_instruction_executed: bool,
 
@@ -22,4 +24,35 @@ pub struct ProcessorStatus {
     pub last_operation_result_negative: bool,
 }
 
-impl ProcessorStatus {}
+impl ProcessorStatus {
+    pub fn to_u8(&self) -> u8 {
+        // the starting result
+        let mut result = 0b0001_0000;
+
+        if self.last_operation_result_negative {
+            result |= 1 << 7;
+        }
+
+        if self.overflow_flag {
+            result |= 1 << 6;
+        }
+
+        if self.bit_four {
+            result |= 1 << 4;
+        }
+
+        if self.decimal_mode {
+            result |= 1 << 3;
+        }
+
+        if self.interrupts_disabled {
+            result |= 1 << 2;
+        }
+
+        if self.carry_flag {
+            result |= 1;
+        }
+
+        result
+    }
+}

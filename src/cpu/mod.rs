@@ -62,6 +62,8 @@ pub struct Cpu<T: MemoryMapper> {
 
 impl<T: MemoryMapper> Cpu<T> {
     pub fn step_instruction(&mut self) {
+        self.last_instr_disasm = "".to_string();
+
         match self.pending_cycles {
             0 => {
                 // println!("{:#?}", &self);
@@ -247,6 +249,27 @@ impl<T: MemoryMapper> Cpu<T> {
                         self.processor_status.interrupts_disabled = true;
 
                         self.take_cycles(2);
+
+                        self.set_last_instr_disasm_str("sei");
+                    }
+                    0xf8 => {
+                        // sed -- implied
+                        self.processor_status.decimal_mode = true;
+
+                        self.take_cycles(2);
+
+                        self.set_last_instr_disasm_str("sed");
+                    }
+                    0x8 => {
+                        // php -- implied
+                        let mut status = self.processor_status.clone();
+                        status.bit_four = true;
+
+                        self.push(status.to_u8());
+
+                        self.take_cycles(3);
+
+                        self.set_last_instr_disasm_str("php");
                     }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
