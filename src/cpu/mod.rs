@@ -122,11 +122,10 @@ impl<T: MemoryMapper> Cpu<T> {
                         // jsr -- absolute
                         let address = self.next_double_word();
 
-                        // push the pc and move pc to new address
-                        let pc = self.reg_program_counter;
-                        self.push_u16(pc);
+                        // push the starting pc + 2 and move pc to new address
+                        self.push_u16(pc + 2);
 
-                        self.reg_program_counter = address + 1;
+                        self.reg_program_counter = address;
                         self.take_cycles(6);
 
                         self.set_last_instr_disasm(format!("jsr {:#x}", &address));
@@ -228,7 +227,20 @@ impl<T: MemoryMapper> Cpu<T> {
                         let relative_address = self.next_word() as i8;
                         let take_branch = self.processor_status.last_operation_result_negative == false;
 
-                        self.do_branch_instruction(relative_address, take_branch);
+                        let absolute_addr = self.do_branch_instruction(relative_address, take_branch);
+
+                        self.set_last_instr_disasm(format!("bpl {:#x}", absolute_addr));
+                    }
+                    0x60 => {
+                        // rts -- implied
+
+                        // get the stored return address, then add 1 to go to next instr
+                        let return_addr = self.pop_u16() + 1;
+
+                        self.reg_program_counter = return_addr;
+                        self.take_cycles(6);
+
+                        self.set_last_instr_disasm(format!("rts {:#x}", return_addr));
                     }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
