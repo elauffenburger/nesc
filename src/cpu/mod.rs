@@ -242,6 +242,12 @@ impl<T: MemoryMapper> Cpu<T> {
 
                         self.set_last_instr_disasm(format!("rts {:#x}", return_addr));
                     }
+                    0x78 => {
+                        // sei -- implied
+                        self.processor_status.interrupts_disabled = true;
+
+                        self.take_cycles(2);
+                    }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
 
