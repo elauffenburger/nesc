@@ -51,18 +51,45 @@ pub fn abs_y<T: MemoryMapper>(cpu: &mut Cpu<T>) {
     abs_indexed(cpu, abs_addr, y);
 }
 
-pub fn indirect_x<T: MemoryMapper>(cpu: &mut Cpu<T>) {}
+pub fn indirect_x<T: MemoryMapper>(cpu: &mut Cpu<T>) {
+    let indirect_addr = cpu.next_word() as u16;
+    let x = cpu.reg_index_x as u16;
+    let direct_zero_page_addr = cpu.read(indirect_addr + x) as u16;
+    let value = cpu.read(direct_zero_page_addr);
 
-pub fn indirect_y<T: MemoryMapper>(cpu: &mut Cpu<T>) {}
+    adc(cpu, value as i8);
+
+    cpu.take_cycles(6);
+}
+
+pub fn indirect_y<T: MemoryMapper>(cpu: &mut Cpu<T>) {
+    let indirect_zero_page_addr = cpu.next_word() as u16;
+    let y = cpu.reg_index_y as u16;
+    let offset = cpu.read(indirect_zero_page_addr) as u16;
+    let abs_addr = offset + y;
+
+    let value = cpu.read(abs_addr);
+    adc(cpu, value as i8);
+
+    let cycles = match memory_map::crosses_page_boundary(offset, abs_addr) {
+        false => 5,
+        true => 6,
+    };
+
+    cpu.take_cycles(cycles);
+}
 
 fn adc<T: MemoryMapper>(cpu: &mut Cpu<T>, value: i8) {
-    let (result, carry) = cpu.reg_accumulator.overflowing_add(value).0.overflowing_add(cpu.processor_status.carry_flag as i8);
+    let to_add = value.overflowing_add(cpu.processor_status.carry_flag as i8).0;
+    let acc = cpu.reg_accumulator;
 
-    cpu.reg_accumulator = result;
+    let overflow = acc.overflowing_add(to_add).1;
+    let result = (acc as i32) + (to_add as i32);
 
-    cpu.processor_status.carry_flag = carry;
+    cpu.processor_status.overflow_flag = overflow;
+    cpu.processor_status.carry_flag = result > 0xff;
 
-
+    cpu.reg_accumulator = result as i8;
 }
 
 fn abs_indexed<T: MemoryMapper>(cpu: &mut Cpu<T>, abs_addr: u16, offset: u16) {
@@ -78,5 +105,3 @@ fn abs_indexed<T: MemoryMapper>(cpu: &mut Cpu<T>, abs_addr: u16, offset: u16) {
 
     cpu.take_cycles(cycles);
 }
-
-fn indirect<T: MemoryMapper>(cpu: &mut Cpu<T>) {}
