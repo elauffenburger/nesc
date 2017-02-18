@@ -223,6 +223,13 @@ impl<T: MemoryMapper> Cpu<T> {
                         // adc -- immediate
                         instructions::adc::immediate(self);
                     }
+                    0x10 => {
+                        // bpl -- relative
+                        let relative_address = self.next_word() as i8;
+                        let take_branch = self.processor_status.last_operation_result_negative == false;
+
+                        self.do_branch_instruction(relative_address, take_branch);
+                    }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
 
