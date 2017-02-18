@@ -10,7 +10,9 @@ pub use self::mappers::*;
 
 use ::rom;
 
-pub trait MemoryMapper {
+use std::fmt::Debug;
+
+pub trait MemoryMapper: Debug {
     fn read(&self, address: u16) -> u8;
     fn read_u16(&self, address: u16) -> u16;
     fn write(&mut self, address: u16, val: u8);

@@ -56,3 +56,20 @@ fn test_push_pop_mixed() {
     assert_eq!(&cpu.pop_u16(), &42);
     assert_eq!(&cpu.resolve_stack_pointer(), &memory_map::STACK_END);
 }
+
+#[test]
+fn test_exec_instr() {
+    let mut cpu: Cpu<memory_map::NROMMemoryMap> = Cpu::default();
+    cpu.init_registers();
+
+    // lda #$fe
+    cpu.exec_instr(&vec![0xa9, 0xfe]);
+    assert_eq!(cpu.reg_accumulator, 0xfe);
+
+    // wait for cpu to finish executing
+    cpu.step_instruction();
+
+    // sta $05
+    cpu.exec_instr(&vec![0x85, 0x05]);
+    assert_eq!(cpu.read(0x05), 0xfe);
+}

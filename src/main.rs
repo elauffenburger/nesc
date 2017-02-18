@@ -5,17 +5,16 @@ pub mod rom;
 pub mod bits;
 
 use std::fs::File;
-use std::fmt::Debug;
 use memory_map::MemoryMapper;
 
 extern crate byteorder;
 
 #[derive(Debug, Default)]
-struct Nes<T: MemoryMapper + Debug> {
+struct Nes<T: MemoryMapper> {
     cpu: cpu::Cpu<T>,
 }
 
-impl<T: MemoryMapper + Debug> Nes<T> {
+impl<T: MemoryMapper> Nes<T> {
     pub fn power_on(&mut self) {}
 
     pub fn run(&mut self) {
