@@ -271,6 +271,34 @@ impl<T: MemoryMapper> Cpu<T> {
 
                         self.set_last_instr_disasm(format!("and {:#x}", result));
                     }
+                    0xc9 => {
+                        // cmp -- immediate
+
+                        let immediate = self.next_signed_word();
+                        let acc = self.reg_accumulator;
+                        let (result, carry) = acc.overflowing_sub(immediate);
+
+                        self.processor_status.negative = result < 0;
+                        self.processor_status.zero = result == 0;
+                        self.processor_status.carry_flag = carry;
+
+                        self.take_cycles(2);
+                    }
+                    0xd8 => {
+                        // cld -- implied
+
+                        self.processor_status.decimal_mode = false;
+
+                        self.take_cycles(2);
+                    }
+                    0x48 => {
+                        // pha -- implied
+
+                        let acc = self.reg_accumulator;
+                        self.push(acc as u8);
+
+                        self.take_cycles(3);
+                    }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };
 
@@ -299,7 +327,7 @@ impl<T: MemoryMapper> Cpu<T> {
         self.reg_program_counter = memory_map::PRG_ROM_START;
 
         // set sp to top of stack
-        self.reg_stack_pointer = (memory_map::STACK_SIZE - 1) as u8;
+        self.reg_stack_pointer = memory_map::STACK_END as u8;
     }
 
     fn take_cycles(&mut self, cycles: u8) {
