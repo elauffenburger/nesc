@@ -269,7 +269,7 @@ impl<T: MemoryMapper> Cpu<T> {
                         self.reg_accumulator = result;
                         self.take_cycles(2);
 
-                        self.set_last_instr_disasm(format!("and {:#x}", result));
+                        self.set_last_instr_disasm(format!("and {:#x}", immediate));
                     }
                     0xc9 => {
                         // cmp -- immediate
@@ -283,6 +283,8 @@ impl<T: MemoryMapper> Cpu<T> {
                         self.processor_status.carry_flag = carry;
 
                         self.take_cycles(2);
+
+                        self.set_last_instr_disasm(format!("cmp {:#x}", immediate));
                     }
                     0xd8 => {
                         // cld -- implied
@@ -290,6 +292,8 @@ impl<T: MemoryMapper> Cpu<T> {
                         self.processor_status.decimal_mode = false;
 
                         self.take_cycles(2);
+
+                        self.set_last_instr_disasm_str("cld");
                     }
                     0x48 => {
                         // pha -- implied
@@ -298,6 +302,8 @@ impl<T: MemoryMapper> Cpu<T> {
                         self.push(acc as u8);
 
                         self.take_cycles(3);
+
+                        self.set_last_instr_disasm_str("pha");
                     }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };

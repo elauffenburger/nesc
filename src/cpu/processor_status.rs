@@ -27,7 +27,7 @@ pub struct ProcessorStatus {
 impl ProcessorStatus {
     pub fn to_u8(&self) -> u8 {
         // the starting result
-        let mut result = 0b0001_0000;
+        let mut result = 0b0010_0000;
 
         if self.negative {
             result |= 1 << 7;
@@ -47,6 +47,10 @@ impl ProcessorStatus {
 
         if self.interrupts_disabled {
             result |= 1 << 2;
+        }
+
+        if self.zero {
+            result |= 1 << 1;
         }
 
         if self.carry_flag {
