@@ -39,7 +39,7 @@ fn do_branch_carry_instruction<T: MemoryMapper>(cpu: &mut Cpu<T>, branch_if_flag
     let relative_address = cpu.next_signed_word();
 
     let is_set = cpu.processor_status.carry_flag;
-    let take_branch = branch_if_flag_set != is_set;
+    let take_branch = branch_if_flag_set == is_set;
 
     do_branch_instruction(cpu, relative_address, take_branch)
 }
@@ -67,7 +67,7 @@ pub fn beq<T: MemoryMapper>(cpu: &mut Cpu<T>) {
 
 pub fn bne<T: MemoryMapper>(cpu: &mut Cpu<T>) {
     let relative_address = cpu.next_signed_word();
-    let take_branch = cpu.processor_status.zero;
+    let take_branch = !cpu.processor_status.zero;
 
     let absolute_address = do_branch_instruction(cpu, relative_address, take_branch);
 

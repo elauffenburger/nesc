@@ -244,7 +244,7 @@ impl<T: MemoryMapper> Cpu<T> {
                         let mut status = self.processor_status.clone();
                         status.bit_four = true;
 
-                        self.push(status.to_u8());
+                        self.push(ProcessorStatus::to_u8(&status));
                         self.take_cycles(3);
 
                         self.set_last_instr_disasm_str("php");
@@ -304,6 +304,16 @@ impl<T: MemoryMapper> Cpu<T> {
                         self.take_cycles(3);
 
                         self.set_last_instr_disasm_str("pha");
+                    }
+                    0x28 => {
+                        // plp -- implied
+
+                        let status = self.pop();
+                        self.processor_status = ProcessorStatus::from_u8(status);
+
+                        self.take_cycles(4);
+
+                        self.set_last_instr_disasm_str("plp");
                     }
                     _ => panic!("unknown opcode: {:#x}", &opcode),
                 };

@@ -25,38 +25,81 @@ pub struct ProcessorStatus {
 }
 
 impl ProcessorStatus {
-    pub fn to_u8(&self) -> u8 {
+    pub fn to_u8(status: &ProcessorStatus) -> u8 {
         // the starting result
         let mut result = 0b0010_0000;
 
-        if self.negative {
+        if status.negative {
             result |= 1 << 7;
         }
 
-        if self.overflow_flag {
+        if status.overflow_flag {
             result |= 1 << 6;
         }
 
-        if self.bit_four {
+        if status.bit_four {
             result |= 1 << 4;
         }
 
-        if self.decimal_mode {
+        if status.decimal_mode {
             result |= 1 << 3;
         }
 
-        if self.interrupts_disabled {
+        if status.interrupts_disabled {
             result |= 1 << 2;
         }
 
-        if self.zero {
+        if status.zero {
             result |= 1 << 1;
         }
 
-        if self.carry_flag {
+        if status.carry_flag {
             result |= 1;
         }
 
         result
+    }
+
+    fn test_bit(val: u8, test: u8) -> bool {
+        val & (1 << test) > 0
+    }
+
+    pub fn from_u8(status: u8) -> Self {
+        let mut result = ProcessorStatus::default();
+
+        result.negative = ProcessorStatus::test_bit(status, 7);
+        result.overflow_flag = ProcessorStatus::test_bit(status, 6);
+        result.bit_four = ProcessorStatus::test_bit(status, 4);
+        result.decimal_mode = ProcessorStatus::test_bit(status, 3);
+        result.interrupts_disabled = ProcessorStatus::test_bit(status, 2);
+        result.zero = ProcessorStatus::test_bit(status, 1);
+        result.carry_flag = ProcessorStatus::test_bit(status, 0);
+
+        result
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::ProcessorStatus;
+
+    #[test]
+    pub fn test_from_u8() {
+        let result: ProcessorStatus = ProcessorStatus::from_u8(0b1010_1111);
+
+        assert_eq!(result.negative, true);
+        assert_eq!(result.overflow_flag, false);
+        assert_eq!(result.bit_four, false);
+        assert_eq!(result.decimal_mode, true);
+        assert_eq!(result.interrupts_disabled, true);
+        assert_eq!(result.zero, true);
+        assert_eq!(result.carry_flag, true);
+    }
+
+    #[test]
+    pub fn test_symmetry() {
+        let status = 0b1010_1111;
+        assert_eq!(ProcessorStatus::to_u8(&ProcessorStatus::from_u8(status)),
+                   status);
     }
 }
